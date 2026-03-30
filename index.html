@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Multi-Robot Warehouse Navigation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#060E1E;--panel:#0A1628;--card:#0F2044;--card2:#162840;
+  --cyan:#00D4FF;--green:#02C39A;--purple:#7B2FBE;
+  --amber:#FFB347;--red:#FF6B6B;--pink:#FF4DA6;
+  --white:#fff;--text:#B0C4DE;--muted:#4A6080;
+  --border:#1C3A50;--glow:rgba(0,212,255,.15);
+}
+html,body{height:100%;background:var(--bg);color:var(--white);
+  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none;}
+
+/* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+#app{display:grid;height:100vh;
+  grid-template-rows:54px 1fr 40px;
+  grid-template-columns:280px 1fr;
+  grid-template-areas:"hdr hdr""side main""foot foot";}
+
+/* ── HEADER ─────────────────────────────────────────────────────────────── */
+header{grid-area:hdr;background:linear-gradient(90deg,#0A1628,#060E1E);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 18px;gap:18px;
+  box-shadow:0 2px 20px rgba(0,212,255,.08);}
+.logo{font-size:20px;font-weight:900;font-family:'Trebuchet MS',sans-serif;
+  color:var(--cyan);letter-spacing:-0.5px;white-space:nowrap;}
+.logo em{color:#fff;font-style:normal;}
+.logo small{font-size:10px;color:var(--muted);font-weight:400;display:block;
+  letter-spacing:1px;text-transform:uppercase;margin-top:-2px;}
+.hbar-stats{display:flex;gap:2px;margin-left:auto;}
+.hstat{min-width:80px;text-align:center;padding:4px 12px;
+  border-left:1px solid var(--border);}
+.hstat:first-child{border-left:none;}
+.hv{font-size:18px;font-weight:900;font-family:'Arial Black',sans-serif;color:var(--cyan);}
+.hl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.pill{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;
+  border:1px solid var(--cyan);color:var(--cyan);background:transparent;
+  cursor:pointer;transition:.2s;white-space:nowrap;}
+.pill:hover{background:var(--cyan);color:#060E1E;}
+.pill.active{background:var(--cyan);color:#060E1E;}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────────────── */
+aside{grid-area:side;background:var(--panel);overflow-y:auto;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;gap:0;}
+.s-section{padding:10px 14px;border-bottom:1px solid var(--border);}
+.s-title{font-size:9px;font-weight:700;color:var(--cyan);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;
+  display:flex;align-items:center;gap:5px;}
+.s-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.ctrl-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.ctrl-lbl{font-size:11px;color:var(--text);flex-shrink:0;width:52px;}
+input[type=range]{flex:1;accent-color:var(--cyan);height:3px;cursor:pointer;}
+input[type=number]{width:48px;background:var(--card2);border:1px solid var(--border);
+  color:#fff;border-radius:5px;padding:3px 6px;font-size:12px;text-align:center;
+  outline:none;}
+input[type=number]:focus{border-color:var(--cyan);}
+select{flex:1;background:var(--card2);border:1px solid var(--border);color:#fff;
+  border-radius:5px;padding:4px 8px;font-size:11px;outline:none;cursor:pointer;}
+select:focus{border-color:var(--cyan);}
+
+/* Buttons */
+.btn{width:100%;padding:7px;border-radius:6px;border:none;cursor:pointer;
+  font-weight:700;font-family:'Trebuchet MS',sans-serif;font-size:11px;
+  transition:.15s;letter-spacing:.3px;margin-bottom:4px;}
+.btn:active{transform:scale(.97);}
+.btn:hover{filter:brightness(1.15);}
+.btn-cyan{background:var(--cyan);color:#060E1E;}
+.btn-green{background:var(--green);color:#060E1E;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-outline{background:transparent;color:var(--cyan);border:1px solid var(--cyan);}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:4px;}
+.btn-2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:4px;}
+
+/* Mode buttons */
+.modes{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:6px;}
+.mode-btn{flex:1;padding:5px 0;font-size:10px;font-weight:700;cursor:pointer;
+  background:transparent;color:var(--muted);border:none;transition:.15s;
+  text-transform:uppercase;letter-spacing:.5px;}
+.mode-btn.on{background:var(--cyan);color:#060E1E;}
+
+/* Checkboxes */
+.chk-row{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text);
+  cursor:pointer;margin-bottom:4px;}
+input[type=checkbox]{accent-color:var(--cyan);width:13px;height:13px;cursor:pointer;}
+
+/* Robot cards */
+.rcard{background:var(--card2);border-radius:6px;padding:8px;
+  border-left:3px solid;margin-bottom:5px;}
+.rcard-head{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.rdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.rname{font-size:11px;font-weight:700;}
+.rinfo{font-size:9px;color:var(--muted);line-height:1.7;font-family:Consolas,monospace;}
+.rbar{height:3px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden;}
+.rbar-fill{height:100%;border-radius:2px;transition:width .35s ease;}
+
+/* Scrollbar */
+aside::-webkit-scrollbar{width:3px;}
+aside::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── CANVAS ──────────────────────────────────────────────────────────────── */
+main{grid-area:main;position:relative;overflow:hidden;background:var(--bg);}
+canvas{display:block;position:absolute;top:0;left:0;}
+#cv-bg{z-index:1;}
+#cv-main{z-index:2;}
+#cv-ui{z-index:3;pointer-events:none;}
+
+/* ── OVERLAYS ────────────────────────────────────────────────────────────── */
+.overlay{position:absolute;pointer-events:none;z-index:5;}
+#info-box{top:10px;left:10px;background:rgba(6,14,30,.9);
+  border:1px solid var(--border);border-radius:8px;padding:9px 13px;
+  font-size:10px;color:var(--text);line-height:1.9;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);}
+#info-box b{color:var(--cyan);}
+#info-box .tag{display:inline-block;padding:1px 7px;border-radius:10px;
+  font-size:9px;font-weight:700;background:var(--card2);color:var(--green);
+  border:1px solid var(--green);margin-left:4px;}
+#step-box{top:10px;right:10px;background:rgba(6,14,30,.92);
+  border:1px solid var(--cyan);border-radius:10px;padding:8px 18px;
+  text-align:center;box-shadow:0 0 20px rgba(0,212,255,.12);}
+#step-n{font-size:28px;font-weight:900;font-family:'Arial Black',sans-serif;
+  color:var(--cyan);line-height:1;}
+#step-l{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+#tooltip{position:absolute;z-index:20;background:rgba(10,22,40,.95);
+  border:1px solid var(--cyan);border-radius:6px;padding:5px 10px;
+  font-size:10px;color:var(--text);pointer-events:none;display:none;
+  box-shadow:0 2px 12px rgba(0,212,255,.15);}
+
+/* Zoom controls */
+#zoom-ctrl{bottom:12px;right:12px;display:flex;flex-direction:column;gap:4px;}
+.zbtn{width:28px;height:28px;background:var(--card);border:1px solid var(--border);
+  color:var(--cyan);border-radius:5px;cursor:pointer;pointer-events:all;
+  font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  transition:.15s;}
+.zbtn:hover{background:var(--card2);border-color:var(--cyan);}
+
+/* Conflict alert */
+#conflict-bar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(255,107,107,.15);border:1px solid var(--red);
+  border-radius:6px;padding:4px 16px;font-size:11px;color:var(--red);
+  display:none;z-index:10;pointer-events:none;}
+
+/* ── FOOTER ──────────────────────────────────────────────────────────────── */
+footer{grid-area:foot;background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:16px;font-size:10px;}
+#log{flex:1;color:var(--green);font-family:Consolas,monospace;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.fstat{color:var(--muted);}
+.fstat b{color:var(--cyan);}
+.fdot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.fdot.red{background:var(--red);}
+.fdot.amber{background:var(--amber);}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">🤖 <em>Warehouse</em> AI
+    <small>Multi-Robot Navigation System · A* Search</small>
+  </div>
+  <div class="hbar-stats">
+    <div class="hstat"><div class="hv" id="h-robots">3</div><div class="hl">Robots</div></div>
+    <div class="hstat"><div class="hv" id="h-steps">—</div><div class="hl">Max Steps</div></div>
+    <div class="hstat"><div class="hv" id="h-conf" style="color:var(--green)">—</div><div class="hl">Conflicts</div></div>
+    <div class="hstat"><div class="hv" id="h-eff">—</div><div class="hl">A* Overhead</div></div>
+    <div class="hstat"><div class="hv" id="h-grid">—</div><div class="hl">Grid</div></div>
+  </div>
+  <div style="display:flex;gap:6px;margin-left:8px;">
+    <button class="pill" onclick="planPaths()">▶ Plan</button>
+    <button class="pill" onclick="runSim()" id="run-btn">▶▶ Run</button>
+    <button class="pill" onclick="pauseSim()">⏸</button>
+    <button class="pill" onclick="resetSim()">↺</button>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside>
+
+  <!-- Grid -->
+  <div class="s-section">
+    <div class="s-title">⚙ Grid</div>
+    <div class="ctrl-row"><span class="ctrl-lbl">Rows</span><input type="number" id="in-rows" value="16" min="6" max="24"/></div>
+    <div class="ctrl-row"><span class="ctrl-lbl">Cols</span><input type="number" id="in-cols" value="20" min="6" max="30"/></div>
+    <div class="ctrl-row"><span class="ctrl-lbl">Robots</span><input type="number" id="in-robots" value="4" min="1" max="6"/></div>
+    <div class="ctrl-row"><span class="ctrl-lbl">Layout</span>
+      <select id="in-preset" onchange="newSetup()">
+        <option value="warehouse">🏭 Warehouse</option>
+        <option value="maze">🌀 Maze</option>
+        <option value="open">⬜ Open Floor</option>
+        <option value="cross">✛ Cross Aisles</option>
+        <option value="random">🎲 Random</option>
+      </select>
+    </div>
+    <button class="btn btn-outline" onclick="newSetup()">⟳ Regenerate</button>
+  </div>
+
+  <!-- Edit -->
+  <div class="s-section">
+    <div class="s-title">✏ Edit</div>
+    <div class="modes" id="mode-grp">
+      <button class="mode-btn on" onclick="setMode('wall')"  id="m-wall">Wall</button>
+      <button class="mode-btn"    onclick="setMode('erase')" id="m-erase">Erase</button>
+      <button class="mode-btn"    onclick="setMode('start')" id="m-start">Start</button>
+      <button class="mode-btn"    onclick="setMode('goal')"  id="m-goal">Goal</button>
+    </div>
+    <div style="font-size:9px;color:var(--muted);">Click grid • Robot idx: <b id="edit-ridx" style="color:var(--cyan)">0</b></div>
+  </div>
+
+  <!-- Simulate -->
+  <div class="s-section">
+    <div class="s-title">▶ Simulate</div>
+    <button class="btn btn-green" onclick="planPaths()">▶  Plan Paths (A*)</button>
+    <div class="btn-grid">
+      <button class="btn btn-cyan"    onclick="runSim()">▶▶ Run</button>
+      <button class="btn btn-outline" onclick="pauseSim()">⏸ Pause</button>
+      <button class="btn btn-outline" onclick="stepOnce()">▶| Step</button>
+    </div>
+    <button class="btn btn-red" onclick="resetSim()">↺  Reset</button>
+    <div class="ctrl-row" style="margin-top:4px;">
+      <span class="ctrl-lbl">Speed</span>
+      <input type="range" id="in-speed" min="0.3" max="6" step="0.1" value="2"/>
+      <span style="font-size:10px;color:var(--muted)" id="speed-lbl">2×</span>
+    </div>
+  </div>
+
+  <!-- View -->
+  <div class="s-section">
+    <div class="s-title">👁 Layers</div>
+    <label class="chk-row"><input type="checkbox" id="chk-paths"  checked onchange="redraw()"> A* Paths</label>
+    <label class="chk-row"><input type="checkbox" id="chk-bfs"    onchange="redraw()"> BFS Paths (dashed)</label>
+    <label class="chk-row"><input type="checkbox" id="chk-trail"  checked onchange="redraw()"> Robot Trails</label>
+    <label class="chk-row"><input type="checkbox" id="chk-heat"   onchange="redraw()"> Heatmap (A* explored)</label>
+    <label class="chk-row"><input type="checkbox" id="chk-coords" checked onchange="redraw()"> Grid Coordinates</label>
+    <label class="chk-row"><input type="checkbox" id="chk-costs"  onchange="redraw()"> Step Costs on Path</label>
+    <label class="chk-row"><input type="checkbox" id="chk-grid"   checked onchange="redraw()"> Grid Lines</label>
+  </div>
+
+  <!-- Robots -->
+  <div class="s-section" style="flex:1;">
+    <div class="s-title">🤖 Robot Status</div>
+    <div id="rcards"></div>
+  </div>
+
+</aside>
+
+<!-- MAIN -->
+<main id="main">
+  <canvas id="cv-bg"></canvas>
+  <canvas id="cv-main"></canvas>
+  <canvas id="cv-ui"></canvas>
+
+  <!-- Overlays -->
+  <div class="overlay" id="info-box">
+    <b>Algorithm</b> Space-Time A* <span class="tag">Optimal</span><br>
+    <b>Heuristic</b> Manhattan Distance<br>
+    <b>Coordination</b> Priority-Based Cooperative<br>
+    <b>Conflict</b> Space-Time Reservation
+  </div>
+  <div class="overlay" id="step-box">
+    <div id="step-n">0</div>
+    <div id="step-l">Time Step</div>
+  </div>
+  <div id="tooltip"></div>
+
+  <!-- Zoom -->
+  <div class="overlay" id="zoom-ctrl" style="pointer-events:all;">
+    <button class="zbtn" onclick="zoom(1.2)" title="Zoom in">+</button>
+    <button class="zbtn" onclick="zoom(0.83)" title="Zoom out">−</button>
+    <button class="zbtn" onclick="resetZoom()" title="Fit" style="font-size:10px">⊡</button>
+  </div>
+
+  <div id="conflict-bar">⚠ Conflict detected at this step!</div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="fdot" id="fdot"></div>
+  <span id="fstatus">Ready</span>
+  <div id="log">← Click Plan Paths to compute collision-free routes using A*</div>
+  <span class="fstat">Keyboard: <b>P</b>lan · <b>R</b>un · <b>Space</b> pause · <b>→</b> step · <b>N</b>ew · <b>Esc</b> reset</span>
+</footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+const RC = ['#00D4FF','#CC44FF','#02C39A','#FFB347','#FF6B6B','#FFD700'];
+const DIR4 = [[-1,0],[1,0],[0,-1],[0,1]];
+const AISLE_GAP = 4;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let G = {rows:16, cols:20, walls:new Set()};
+let robots = [];
+let planned = false;
+let simStep = 0;        // integer step
+let fracStep = 0;       // fractional for smooth animation
+let maxSteps = 0;
+let animId = null;
+let lastTime = 0;
+let mode = 'wall';
+let editRIdx = 0;
+let conflicts = [];
+let heatmap = {};       // {key: count} — A* exploration heat
+let particles = [];     // celebration particles
+let zoomLevel = 1;
+let panX = 0, panY = 0;
+let isDragging = false, dragStart = null;
+
+// Canvas layers
+const cvBg   = document.getElementById('cv-bg');
+const cvMain = document.getElementById('cv-main');
+const cvUi   = document.getElementById('cv-ui');
+const ctxBg  = cvBg.getContext('2d');
+const ctxM   = cvMain.getContext('2d');
+const ctxUi  = cvUi.getContext('2d');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRID HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const key   = (r,c) => `${r},${c}`;
+const isWall= (r,c) => G.walls.has(key(r,c));
+const inB   = (r,c) => r>=0&&r<G.rows&&c>=0&&c<G.cols;
+const isFree= (r,c) => inB(r,c)&&!isWall(r,c);
+const nb4   = (r,c) => DIR4.map(([dr,dc])=>[r+dr,c+dc]).filter(([a,b])=>isFree(a,b));
+const mdist = (a,b) => Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1]);
+const freeCells = () => {const a=[];for(let r=0;r<G.rows;r++)for(let c=0;c<G.cols;c++)if(isFree(r,c))a.push([r,c]);return a;};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS GEOMETRY
+// ═══════════════════════════════════════════════════════════════════════════
+const COORD_PAD = 22; // pixels for coordinate labels
+function cs() { // cell size
+  const w = cvMain.width - COORD_PAD;
+  const h = cvMain.height - COORD_PAD;
+  return Math.max(14, Math.min(Math.floor(w/G.cols), Math.floor(h/G.rows))) * zoomLevel;
+}
+function ox() { return COORD_PAD + (cvMain.width-COORD_PAD - cs()*G.cols)/2 + panX; }
+function oy() { return COORD_PAD + (cvMain.height-COORD_PAD - cs()*G.rows)/2 + panY; }
+function cellAt(mx,my) {
+  const s=cs(), x=ox(), y=oy();
+  return [Math.floor((my-y)/s), Math.floor((mx-x)/s)];
+}
+function cellCenter(r,c) {
+  const s=cs();
+  return [ox()+c*s+s/2, oy()+r*s+s/2];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A* SEARCH (Space-Time)
+// ═══════════════════════════════════════════════════════════════════════════
+function astar(start, goal, reserved={}, maxT=400, trackHeat=false) {
+  const h = p => mdist(p, goal);
+  const open = [[h(start), 0, start[0], start[1], 0, [start]]];
+  const vis = new Map();
+
+  while (open.length) {
+    open.sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+    const [,g,r,c,t,path] = open.shift();
+    const k = `${r},${c},${t}`;
+    if (vis.has(k) && vis.get(k)<=g) continue;
+    vis.set(k, g);
+    if (trackHeat) { const hk=key(r,c); heatmap[hk]=(heatmap[hk]||0)+1; }
+    if (r===goal[0]&&c===goal[1]) return path;
+    if (t>=maxT) continue;
+    for (const [dr,dc] of [...DIR4,[0,0]]) {
+      const nr=r+dr, nc=c+dc, nt=t+1;
+      if (!isFree(nr,nc)) continue;
+      if (reserved[`${nr},${nc},${nt}`]) continue;
+      if (reserved[`${nr},${nc},${t}`]&&reserved[`${r},${c},${nt}`]) continue;
+      const nk=`${nr},${nc},${nt}`, ng=g+1;
+      if (vis.has(nk)&&vis.get(nk)<=ng) continue;
+      open.push([ng+h([nr,nc]), ng, nr, nc, nt, [...path,[nr,nc]]]);
+    }
+  }
+  return null;
+}
+
+// BFS (no space-time)
+function bfs(start, goal) {
+  if (start[0]===goal[0]&&start[1]===goal[1]) return [start];
+  const q=[[start,[start]]], vis=new Set([key(...start)]);
+  while (q.length) {
+    const [[r,c],path]=q.shift();
+    for (const [nr,nc] of nb4(r,c)) {
+      if (vis.has(key(nr,nc))) continue;
+      const np=[...path,[nr,nc]];
+      if (nr===goal[0]&&nc===goal[1]) return np;
+      vis.add(key(nr,nc)); q.push([[nr,nc],np]);
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WALL PRESETS
+// ═══════════════════════════════════════════════════════════════════════════
+function genWarehouse() {
+  for (let r=2; r<G.rows-2; r+=3)
+    for (let c=1; c<G.cols-1; c++)
+      if (c%AISLE_GAP!==0) G.walls.add(key(r,c));
+}
+function genMaze() {
+  // Recursive division lite
+  const rng = lcg(Date.now());
+  for (let r=0;r<G.rows;r++) for(let c=0;c<G.cols;c++) {
+    if (r%2===0&&c%2===0) G.walls.add(key(r,c));
+  }
+  // random passages
+  for (let i=0;i<G.rows*G.cols*0.12;i++) {
+    const r=Math.floor(rng()*G.rows), c=Math.floor(rng()*G.cols);
+    G.walls.delete(key(r,c));
+  }
+}
+function genCross() {
+  const mr=Math.floor(G.rows/2), mc=Math.floor(G.cols/2);
+  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++) {
+    if (r===mr||c===mc) continue; // main aisles free
+    if (r%4!==0&&c%4!==0) G.walls.add(key(r,c));
+  }
+}
+function genOpen() {
+  const rng=lcg(42);
+  for (let i=0;i<Math.floor(G.rows*G.cols*0.05);i++) {
+    const r=1+Math.floor(rng()*(G.rows-2)), c=1+Math.floor(rng()*(G.cols-2));
+    G.walls.add(key(r,c));
+  }
+}
+function genRandom() {
+  const rng=lcg(Date.now()^0xDEAD);
+  for (let r=0;r<G.rows;r++) for (let c=0;c<G.cols;c++)
+    if (rng()<0.22) G.walls.add(key(r,c));
+}
+function lcg(seed) {
+  let s=seed>>>0;
+  return ()=>{s=(s*1664525+1013904223)>>>0; return s/0xFFFFFFFF;};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════════════════════════════════
+function newSetup() {
+  cancelAnim();
+  G.rows = parseInt(document.getElementById('in-rows').value)||16;
+  G.cols = parseInt(document.getElementById('in-cols').value)||20;
+  const n = parseInt(document.getElementById('in-robots').value)||4;
+  const preset = document.getElementById('in-preset').value;
+  G.walls = new Set();
+  heatmap = {}; particles = [];
+  planned=false; simStep=0; fracStep=0; conflicts=[];
+  document.getElementById('h-grid').textContent=`${G.rows}×${G.cols}`;
+
+  ({warehouse:genWarehouse,maze:genMaze,cross:genCross,open:genOpen,random:genRandom}[preset]||genWarehouse)();
+
+  robots=[];
+  placeRobots(n);
+  resetZoom();
+  rebuildBg();
+  redraw();
+  setStatus('Ready','green');
+  hdr();
+  log(`${preset} layout · ${G.rows}×${G.cols} grid · ${robots.length} robots`);
+  refreshCards();
+}
+
+function placeRobots(n) {
+  const free=freeCells(); shuffle(free);
+  const used=new Set(); let rid=0;
+  for (const start of free) {
+    if (rid>=n) break;
+    const sk=key(...start); if(used.has(sk)) continue;
+    let best=null, bd=0;
+    for (const c of free) {
+      if(used.has(key(...c))||key(...c)===sk) continue;
+      const d=mdist(start,c); if(d>=Math.max(5,G.cols/3)&&d>bd){bd=d;best=c;}
+    }
+    if (!best) continue;
+    used.add(sk); used.add(key(...best));
+    robots.push({
+      id:rid, start:[...start], goal:[...best],
+      path:[start], bfsPath:[start],
+      vx:start[1], vy:start[0],    // visual position (col, row) for smooth anim
+      stepIdx:0, done:false,
+      color:RC[rid%RC.length],
+      pathCost:0, bfsCost:0, waitSteps:0,
+      trail:[],                    // list of [px,py] visited visual positions
+    });
+    rid++;
+  }
+  document.getElementById('in-robots').value=robots.length;
+  document.getElementById('h-robots').textContent=robots.length;
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=0|Math.random()*(i+1);[a[i],a[j]]=[a[j],a[i]];}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLANNING
+// ═══════════════════════════════════════════════════════════════════════════
+function planPaths() {
+  cancelAnim(); simStep=0; fracStep=0; particles=[];
+  heatmap={};
+  setStatus('Planning…','amber');
+  log('Running Cooperative Space-Time A*…');
+
+  const reserved={};
+  conflicts=[];
+
+  for (const robot of robots) {
+    const isFirst = robots.indexOf(robot)===0;
+    const path = astar(robot.start, robot.goal, reserved, 400, isFirst);
+    if (path) {
+      robot.path=path; robot.pathCost=path.length-1;
+      robot.waitSteps=0;
+      for(let i=1;i<path.length;i++) if(path[i][0]===path[i-1][0]&&path[i][1]===path[i-1][1]) robot.waitSteps++;
+      path.forEach(([r,c],t)=>{reserved[`${r},${c},${t}`]=true;});
+      const [gr,gc]=path[path.length-1];
+      for(let e=path.length;e<path.length+80;e++) reserved[`${gr},${gc},${e}`]=true;
+    } else {
+      robot.path=[robot.start]; robot.pathCost=0;
+    }
+    const bp=bfs(robot.start,robot.goal);
+    robot.bfsPath=bp||[robot.start]; robot.bfsCost=bp?bp.length-1:0;
+    robot.vx=robot.start[1]; robot.vy=robot.start[0];
+    robot.stepIdx=0; robot.done=false; robot.trail=[];
+  }
+
+  maxSteps=Math.max(...robots.map(r=>r.path.length));
+  for(let t=0;t<maxSteps;t++){
+    const occ={};
+    for(const robot of robots){
+      const [r,c]=robot.path[Math.min(t,robot.path.length-1)];
+      const k=key(r,c);
+      if(occ[k]!==undefined) conflicts.push({t,r,c,a:occ[k],b:robot.id});
+      else occ[k]=robot.id;
+    }
+  }
+
+  planned=true;
+  hdr(); refreshCards(); redraw();
+  const nc=conflicts.length;
+  if(nc===0){setStatus('✓ Zero conflicts — all paths collision-free!','green');log(`Done: ${robots.length} robots · ${maxSteps-1} steps · 0 conflicts`);}
+  else{setStatus(`⚠ ${nc} conflict(s) found`,'red');log(`Warning: ${nc} conflict(s). Check heatmap & console.`);}
+  document.getElementById('step-n').textContent='0';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIMULATION (smooth requestAnimationFrame)
+// ═══════════════════════════════════════════════════════════════════════════
+function runSim() {
+  if(!planned){log('Plan paths first!');return;}
+  if(allDone()) resetSim();
+  setStatus('Simulating…','cyan');
+  lastTime=performance.now();
+  tick(lastTime);
+}
+
+function tick(now) {
+  if(!planned) return;
+  const speed = parseFloat(document.getElementById('in-speed').value)||2;
+  const dt = (now-lastTime)/1000;
+  lastTime = now;
+
+  if (allDone()) {
+    fracStep=maxSteps-1;
+    setStatus('✓ All robots reached goals!','green');
+    log('Simulation complete — all robots arrived safely 🎉');
+    redrawMain(); redrawUi(); return;
+  }
+
+  fracStep = Math.min(fracStep + dt*speed, maxSteps-1);
+  const intStep = Math.floor(fracStep);
+  const frac    = fracStep - intStep;
+
+  // Update robot visual positions (interpolate)
+  for(const robot of robots) {
+    const idx = Math.min(intStep, robot.path.length-1);
+    const nxt = Math.min(intStep+1, robot.path.length-1);
+    const [r1,c1]=robot.path[idx];
+    const [r2,c2]=robot.path[nxt];
+    robot.vy = r1+(r2-r1)*frac;
+    robot.vx = c1+(c2-c1)*frac;
+
+    // update step index for trail
+    if (intStep!==robot.stepIdx) {
+      robot.stepIdx=intStep;
+      const [pr,pc]=robot.path[Math.min(intStep,robot.path.length-1)];
+      const [px,py]=cellCenter(pr,pc);
+      robot.trail.push([px,py]);
+      if(robot.trail.length>40) robot.trail.shift();
+    }
+
+    const goalIdx=robot.path.length-1;
+    if(!robot.done && intStep>=goalIdx) {
+      robot.done=true;
+      spawnParticles(...cellCenter(...robot.goal), robot.color);
+    }
+  }
+
+  simStep=intStep;
+  document.getElementById('step-n').textContent=intStep;
+
+  // conflict flash
+  const hasConflict=conflicts.some(cf=>cf.t===intStep);
+  document.getElementById('conflict-bar').style.display=hasConflict?'block':'none';
+
+  updateParticles(dt);
+  refreshCards();
+  redrawMain();
+  redrawUi();
+  animId=requestAnimationFrame(tick);
+}
+
+function stepOnce() {
+  cancelAnim();
+  if(!planned) return;
+  fracStep=Math.min(fracStep+1,maxSteps-1);
+  simStep=Math.floor(fracStep);
+  for(const r of robots){
+    const idx=Math.min(simStep,r.path.length-1);
+    r.vy=r.path[idx][0]; r.vx=r.path[idx][1];
+    if(!r.done&&r.path[idx][0]===r.goal[0]&&r.path[idx][1]===r.goal[1]){
+      r.done=true; spawnParticles(...cellCenter(...r.goal),r.color);
+    }
+  }
+  document.getElementById('step-n').textContent=simStep;
+  updateParticles(0);
+  refreshCards(); redrawMain(); redrawUi();
+}
+
+function pauseSim() {cancelAnim();setStatus('Paused','amber');}
+function resetSim() {
+  cancelAnim(); fracStep=0; simStep=0; particles=[];
+  if(planned) robots.forEach(r=>{
+    r.vx=r.start[1];r.vy=r.start[0];r.stepIdx=0;r.done=false;r.trail=[];
+  });
+  document.getElementById('step-n').textContent='0';
+  document.getElementById('conflict-bar').style.display='none';
+  setStatus('Reset','green'); refreshCards(); redrawMain(); redrawUi();
+}
+
+function cancelAnim(){if(animId){cancelAnimationFrame(animId);animId=null;}}
+const allDone=()=>robots.length>0&&robots.every(r=>r.done);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════════════════════════════════════
+function spawnParticles(px,py,color) {
+  for(let i=0;i<18;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=40+Math.random()*80;
+    particles.push({x:px,y:py,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+      life:1,color,size:2+Math.random()*3});
+  }
+}
+function updateParticles(dt) {
+  for(const p of particles){
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=60*dt; // gravity
+    p.life-=dt*1.5;
+  }
+  particles=particles.filter(p=>p.life>0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING — BACKGROUND LAYER (static, only rebuilt on grid change)
+// ═══════════════════════════════════════════════════════════════════════════
+function rebuildBg() {
+  const w=cvBg.width, h=cvBg.height;
+  const s=cs(), x=ox(), y=oy();
+  ctxBg.clearRect(0,0,w,h);
+
+  // Dark base
+  ctxBg.fillStyle='#060E1E'; ctxBg.fillRect(0,0,w,h);
+
+  // Draw cells
+  for(let r=0;r<G.rows;r++) {
+    for(let c=0;c<G.cols;c++) {
+      const cx=x+c*s, cy=y+r*s;
+      if(isWall(r,c)) {
+        ctxBg.fillStyle='#1E2E3E';
+        ctxBg.fillRect(cx,cy,s,s);
+        // shelf texture
+        if(s>=16) {
+          ctxBg.strokeStyle='#2A4050'; ctxBg.lineWidth=0.8;
+          for(const f of [0.33,0.66]) {
+            ctxBg.beginPath(); ctxBg.moveTo(cx+2,cy+f*s); ctxBg.lineTo(cx+s-2,cy+f*s); ctxBg.stroke();
+          }
+          // vertical stripes
+          ctxBg.fillStyle='#263545';
+          ctxBg.fillRect(cx,cy,3,s); ctxBg.fillRect(cx+s-3,cy,3,s);
+        }
+      } else {
+        // subtle checker pattern
+        const light=(r+c)%2===0;
+        ctxBg.fillStyle=light?'#0D1E36':'#0A1A30';
+        ctxBg.fillRect(cx,cy,s,s);
+      }
+    }
+  }
+
+  // Grid lines layer
+  if(document.getElementById('chk-grid').checked) {
+    ctxBg.strokeStyle='rgba(28,58,80,0.7)'; ctxBg.lineWidth=0.5;
+    for(let r=0;r<=G.rows;r++){ctxBg.beginPath();ctxBg.moveTo(x,y+r*s);ctxBg.lineTo(x+G.cols*s,y+r*s);ctxBg.stroke();}
+    for(let c=0;c<=G.cols;c++){ctxBg.beginPath();ctxBg.moveTo(x+c*s,y);ctxBg.lineTo(x+c*s,y+G.rows*s);ctxBg.stroke();}
+  }
+
+  // Coordinate labels
+  if(document.getElementById('chk-coords').checked && s>=18) {
+    ctxBg.fillStyle='#2A4060'; ctxBg.font=`${Math.min(10,s*0.45)}px Consolas,monospace`;
+    ctxBg.textAlign='center'; ctxBg.textBaseline='middle';
+    for(let c=0;c<G.cols;c+=Math.max(1,Math.floor(G.cols/20))) {
+      ctxBg.fillText(c, x+c*s+s/2, y-10);
+    }
+    ctxBg.textAlign='right';
+    for(let r=0;r<G.rows;r+=Math.max(1,Math.floor(G.rows/16))) {
+      ctxBg.fillText(r, x-4, y+r*s+s/2);
+    }
+    // Axis labels
+    ctxBg.fillStyle='#1C3A50'; ctxBg.font='9px Consolas';
+    ctxBg.textAlign='center'; ctxBg.fillText('col →', x+G.cols*s/2, y-20);
+    ctxBg.save(); ctxBg.translate(x-18,y+G.rows*s/2); ctxBg.rotate(-Math.PI/2);
+    ctxBg.fillText('row ↓',0,0); ctxBg.restore();
+  }
+
+  // Border glow
+  ctxBg.strokeStyle='rgba(0,212,255,0.15)'; ctxBg.lineWidth=2;
+  ctxBg.strokeRect(x,y,G.cols*s,G.rows*s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING — MAIN LAYER
+// ═══════════════════════════════════════════════════════════════════════════
+function redrawMain() {
+  const w=cvMain.width, h=cvMain.height;
+  const s=cs(), x=ox(), y=oy();
+  ctxM.clearRect(0,0,w,h);
+
+  // Heatmap
+  if(document.getElementById('chk-heat').checked && Object.keys(heatmap).length) {
+    const maxH=Math.max(...Object.values(heatmap));
+    for(const [k,v] of Object.entries(heatmap)) {
+      const [r,c]=k.split(',').map(Number);
+      const alpha=(v/maxH)*0.45;
+      ctxM.fillStyle=`rgba(0,212,255,${alpha})`;
+      ctxM.fillRect(x+c*s,y+r*s,s,s);
+    }
+  }
+
+  // Goal cells glow
+  for(const robot of robots) {
+    const [gr,gc]=robot.goal;
+    const gx=x+gc*s, gy=y+gr*s;
+    // tinted background
+    ctxM.fillStyle='rgba(2,195,154,0.08)';
+    ctxM.fillRect(gx,gy,s,s);
+    // glow ring
+    const grd=ctxM.createRadialGradient(gx+s/2,gy+s/2,0,gx+s/2,gy+s/2,s*0.8);
+    grd.addColorStop(0,robot.color+'22');
+    grd.addColorStop(1,'transparent');
+    ctxM.fillStyle=grd; ctxM.fillRect(gx,gy,s,s);
+    // dashed border
+    ctxM.save(); ctxM.strokeStyle=robot.color; ctxM.lineWidth=1.5;
+    ctxM.setLineDash([4,3]); ctxM.globalAlpha=0.8;
+    const pad=Math.max(2,s/8);
+    ctxM.strokeRect(gx+pad,gy+pad,s-pad*2,s-pad*2);
+    ctxM.restore();
+    // G label
+    if(s>=20) {
+      ctxM.fillStyle=robot.color; ctxM.globalAlpha=0.85;
+      ctxM.font=`bold ${Math.max(8,s*0.35)}px 'Arial Black',sans-serif`;
+      ctxM.textAlign='center'; ctxM.textBaseline='middle';
+      ctxM.fillText('G',gx+s/2,gy+s/2); ctxM.globalAlpha=1;
+    }
+  }
+
+  // BFS paths
+  if(document.getElementById('chk-bfs').checked && planned)
+    for(const r of robots) drawPath(ctxM,r.bfsPath,r.color,s,x,y,true,false);
+
+  // A* paths
+  if(document.getElementById('chk-paths').checked && planned)
+    for(const r of robots) drawPath(ctxM,r.path,r.color,s,x,y,false,document.getElementById('chk-costs').checked);
+
+  // Start markers
+  for(const r of robots) {
+    const [sr,sc]=r.start;
+    if(s>=24) {
+      ctxM.fillStyle=r.color; ctxM.globalAlpha=0.4;
+      ctxM.font=`bold ${Math.max(8,s*0.28)}px sans-serif`;
+      ctxM.textAlign='center'; ctxM.textBaseline='middle';
+      ctxM.fillText('S',x+sc*s+s/2,y+sr*s+s/2);
+      ctxM.globalAlpha=1;
+    }
+  }
+
+  // Trails
+  if(document.getElementById('chk-trail').checked) {
+    for(const r of robots) {
+      if(r.trail.length<2) continue;
+      ctxM.save();
+      for(let i=1;i<r.trail.length;i++) {
+        const alpha=(i/r.trail.length)*0.4;
+        const rad=Math.max(2,s*0.12)*(i/r.trail.length);
+        ctxM.beginPath(); ctxM.arc(r.trail[i][0],r.trail[i][1],rad,0,Math.PI*2);
+        ctxM.fillStyle=r.color; ctxM.globalAlpha=alpha; ctxM.fill();
+      }
+      ctxM.restore();
+    }
+  }
+
+  // Robots
+  for(const r of robots) drawRobot(ctxM,r,s,x,y);
+
+  // Particles
+  for(const p of particles) {
+    ctxM.save();
+    ctxM.globalAlpha=Math.max(0,p.life);
+    ctxM.fillStyle=p.color;
+    ctxM.beginPath(); ctxM.arc(p.x,p.y,p.size,0,Math.PI*2); ctxM.fill();
+    ctxM.restore();
+  }
+
+  // Conflict highlights
+  for(const cf of conflicts) {
+    if(Math.abs(cf.t-simStep)<=1) {
+      ctxM.fillStyle='rgba(255,107,107,0.2)';
+      ctxM.fillRect(x+cf.c*s,y+cf.r*s,s,s);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING — PATH
+// ═══════════════════════════════════════════════════════════════════════════
+function drawPath(ctx, path, color, s, ox, oy, dashed, showCosts) {
+  if(!path||path.length<2) return;
+  ctx.save();
+  ctx.strokeStyle=color; ctx.globalAlpha=dashed?0.3:0.6;
+  ctx.lineWidth=dashed?1:Math.max(1.5,s/14);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  if(dashed) ctx.setLineDash([4,5]);
+  ctx.beginPath();
+  path.forEach(([r,c],i)=>{
+    const px=ox+c*s+s/2, py=oy+r*s+s/2;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+  // Arrow at end
+  if(!dashed&&path.length>=2) {
+    const [r1,c1]=path[path.length-2],[r2,c2]=path[path.length-1];
+    const ax=ox+c1*s+s/2,ay=oy+r1*s+s/2,bx=ox+c2*s+s/2,by=oy+r2*s+s/2;
+    const ang=Math.atan2(by-ay,bx-ax), sz=Math.max(5,s/5);
+    ctx.globalAlpha=0.85; ctx.fillStyle=color;
+    ctx.translate(bx,by); ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz,-sz/2.5); ctx.lineTo(-sz,sz/2.5);
+    ctx.closePath(); ctx.fill();
+    ctx.setTransform(1,0,0,1,0,0);
+  }
+  // Cost labels on path
+  if(showCosts&&s>=28) {
+    ctx.globalAlpha=0.7; ctx.fillStyle=color;
+    ctx.font=`${Math.max(7,s*0.22)}px Consolas,monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    path.forEach(([r,c],i)=>{
+      if(i>0&&i%2===0) ctx.fillText(i,ox+c*s+s/2,oy+r*s+s/2);
+    });
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING — ROBOT
+// ═══════════════════════════════════════════════════════════════════════════
+function drawRobot(ctx, robot, s, ox, oy) {
+  const px=ox+robot.vx*s+s/2, py=oy+robot.vy*s+s/2;
+  const rad=Math.max(6,s/2-3);
+
+  // Outer glow
+  const grd=ctx.createRadialGradient(px,py,0,px,py,rad*2.2);
+  grd.addColorStop(0,robot.color+'40');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(px,py,rad*2.2,0,Math.PI*2); ctx.fill();
+
+  // Shadow
+  ctx.save(); ctx.shadowBlur=12; ctx.shadowColor=robot.color;
+  // Body
+  ctx.beginPath(); ctx.arc(px,py,rad,0,Math.PI*2);
+  ctx.fillStyle=robot.color; ctx.fill();
+  ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.restore();
+
+  // Inner circle
+  ctx.beginPath(); ctx.arc(px,py,rad*0.55,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
+
+  // ID
+  ctx.fillStyle='white';
+  ctx.font=`bold ${Math.max(8,s*0.32)}px 'Arial Black',sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(robot.id,px,py);
+
+  // Done
+  if(robot.done&&s>=18) {
+    ctx.fillStyle='#02C39A'; ctx.font=`bold ${Math.max(7,s*0.25)}px sans-serif`;
+    ctx.fillText('✓',px,py-rad-5);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING — UI LAYER (overlays that don't need redraw)
+// ═══════════════════════════════════════════════════════════════════════════
+function redrawUi() {
+  const w=cvUi.width, h=cvUi.height;
+  ctxUi.clearRect(0,0,w,h);
+  // mini progress bar at bottom of canvas
+  if(planned&&maxSteps>1) {
+    const pct=fracStep/(maxSteps-1);
+    ctxUi.fillStyle='rgba(0,212,255,0.08)';
+    ctxUi.fillRect(0,h-3,w,3);
+    ctxUi.fillStyle='#00D4FF';
+    ctxUi.fillRect(0,h-3,w*pct,3);
+  }
+}
+
+function redraw() {rebuildBg(); redrawMain(); redrawUi();}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZOOM & PAN
+// ═══════════════════════════════════════════════════════════════════════════
+function zoom(factor) {
+  zoomLevel=Math.max(0.4,Math.min(3,zoomLevel*factor));
+  rebuildBg(); redrawMain(); redrawUi();
+}
+function resetZoom() {
+  zoomLevel=1; panX=0; panY=0;
+  rebuildBg(); redrawMain(); redrawUi();
+}
+
+cvMain.addEventListener('wheel', e=>{
+  e.preventDefault();
+  zoom(e.deltaY<0?1.1:0.91);
+},{passive:false});
+
+// Pan
+cvMain.addEventListener('mousedown', e=>{
+  if(e.button===1||(e.button===0&&e.altKey)){isDragging=true;dragStart=[e.clientX,e.clientY];}
+});
+window.addEventListener('mousemove', e=>{
+  if(isDragging){panX+=e.clientX-dragStart[0];panY+=e.clientY-dragStart[1];dragStart=[e.clientX,e.clientY];rebuildBg();redrawMain();}
+});
+window.addEventListener('mouseup', ()=>{isDragging=false;});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT MODE
+// ═══════════════════════════════════════════════════════════════════════════
+function setMode(m) {
+  mode=m;
+  ['wall','erase','start','goal'].forEach(id=>{
+    document.getElementById(`m-${id}`).classList.toggle('on',id===m);
+  });
+}
+
+cvMain.addEventListener('click', e=>{
+  if(isDragging) return;
+  const rect=cvMain.getBoundingClientRect();
+  const [r,c]=cellAt(e.clientX-rect.left, e.clientY-rect.top);
+  if(!inB(r,c)) return;
+
+  if(mode==='wall')       { G.walls.add(key(r,c));    planned=false; rebuildBg(); redrawMain(); }
+  else if(mode==='erase') { G.walls.delete(key(r,c)); planned=false; rebuildBg(); redrawMain(); }
+  else if(mode==='start'&&robots.length) {
+    if(isFree(r,c)){robots[editRIdx%robots.length].start=[r,c];planned=false;redrawMain();}
+  }
+  else if(mode==='goal'&&robots.length) {
+    if(isFree(r,c)){robots[editRIdx%robots.length].goal=[r,c];planned=false;redrawMain();}
+    editRIdx=(editRIdx+1)%robots.length;
+    document.getElementById('edit-ridx').textContent=editRIdx;
+  }
+});
+
+// Drag to paint walls
+let painting=false;
+cvMain.addEventListener('mousedown',e=>{ if(e.button===0&&!e.altKey) painting=true; });
+cvMain.addEventListener('mouseup',  ()=>{ painting=false; });
+cvMain.addEventListener('mousemove', e=>{
+  const rect=cvMain.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const [r,c]=cellAt(mx,my);
+
+  // Paint
+  if(painting&&!isDragging&&inB(r,c)) {
+    if(mode==='wall')       { G.walls.add(key(r,c));    planned=false; rebuildBg(); redrawMain(); }
+    else if(mode==='erase') { G.walls.delete(key(r,c)); planned=false; rebuildBg(); redrawMain(); }
+  }
+
+  // Tooltip
+  if(inB(r,c)) {
+    const tip=document.getElementById('tooltip');
+    const rob=robots.find(rb=>Math.round(rb.vy)===r&&Math.round(rb.vx)===c);
+    const goal=robots.find(rb=>rb.goal[0]===r&&rb.goal[1]===c);
+    let html=`<b>(row ${r}, col ${c})</b>`;
+    if(isWall(r,c)) html+=' — Wall / Shelf';
+    if(rob) html+=` — 🤖 Robot ${rob.id}`;
+    if(goal&&!rob) html+=` — 🏁 Goal of Robot ${goal.id}`;
+    if(planned&&heatmap[key(r,c)]) html+=` — Heat: ${heatmap[key(r,c)]}`;
+    tip.innerHTML=html;
+    tip.style.display='block';
+    tip.style.left=(mx+14)+'px'; tip.style.top=(my-28)+'px';
+  } else {
+    document.getElementById('tooltip').style.display='none';
+  }
+});
+cvMain.addEventListener('mouseleave',()=>document.getElementById('tooltip').style.display='none');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function hdr() {
+  document.getElementById('h-robots').textContent=robots.length;
+  document.getElementById('h-steps').textContent=planned?maxSteps-1:'—';
+  const nc=conflicts.length;
+  const el=document.getElementById('h-conf');
+  el.textContent=planned?nc:'—';
+  el.style.color=nc>0?'var(--red)':nc===0&&planned?'var(--green)':'var(--cyan)';
+  const eff=planned?robots.reduce((s,r)=>s+Math.max(0,r.pathCost-r.bfsCost),0):null;
+  document.getElementById('h-eff').textContent=eff!==null?`+${eff}w`:'—';
+  document.getElementById('h-grid').textContent=`${G.rows}×${G.cols}`;
+}
+
+function refreshCards() {
+  const div=document.getElementById('rcards');
+  div.innerHTML='';
+  for(const r of robots) {
+    const pct=r.path.length>1?Math.round(r.stepIdx/(r.path.length-1)*100):0;
+    const done=r.done?'<span style="color:var(--green);margin-left:auto;font-size:10px;">✓ Done</span>':'';
+    div.innerHTML+=`
+    <div class="rcard" style="border-color:${r.color}">
+      <div class="rcard-head">
+        <div class="rdot" style="background:${r.color}"></div>
+        <span class="rname" style="color:${r.color}">Robot ${r.id}</span>${done}
+      </div>
+      <div class="rinfo">
+        ${planned?`A*: <b style="color:${r.color}">${r.pathCost}</b>  BFS: ${r.bfsCost}  Wait: ${r.waitSteps}  Step: ${Math.min(r.stepIdx,r.path.length-1)}/${r.path.length-1}`:
+        `${JSON.stringify(r.start)} → ${JSON.stringify(r.goal)}`}
+      </div>
+      ${planned?`<div class="rbar"><div class="rbar-fill" style="background:${r.color};width:${pct}%"></div></div>`:''}
+    </div>`;
+  }
+}
+
+function setStatus(msg,type='green') {
+  document.getElementById('fstatus').textContent=msg;
+  const d=document.getElementById('fdot');
+  d.className='fdot'+(type==='red'?' red':type==='amber'?' amber':'');
+}
+function log(msg) { document.getElementById('log').textContent=msg; }
+
+// Speed label
+document.getElementById('in-speed').addEventListener('input',function(){
+  document.getElementById('speed-lbl').textContent=parseFloat(this.value).toFixed(1)+'×';
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════════════════════
+function resize() {
+  const main=document.getElementById('main');
+  const w=main.clientWidth, h=main.clientHeight;
+  [cvBg,cvMain,cvUi].forEach(c=>{c.width=w;c.height=h;});
+  rebuildBg(); redrawMain(); redrawUi();
+}
+window.addEventListener('resize',resize);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  const k=e.key;
+  if(k==='p'||k==='P') planPaths();
+  else if(k==='r'||k==='R') runSim();
+  else if(k===' '){ e.preventDefault(); animId?pauseSim():runSim(); }
+  else if(k==='ArrowRight') stepOnce();
+  else if(k==='Escape') resetSim();
+  else if(k==='n'||k==='N') newSetup();
+  else if(k==='+'||k==='=') zoom(1.15);
+  else if(k==='-') zoom(0.87);
+  else if(k==='0') resetZoom();
+  else if(k==='h'||k==='H') {
+    const el=document.getElementById('chk-heat');
+    el.checked=!el.checked; redrawMain();
+  }
+  else if(k==='t'||k==='T') {
+    const el=document.getElementById('chk-trail');
+    el.checked=!el.checked; redrawMain();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+resize();
+newSetup();
+</script>
+</body>
+</html>

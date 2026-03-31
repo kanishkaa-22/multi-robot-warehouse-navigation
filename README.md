@@ -107,7 +107,8 @@ This guarantees **collision-free navigation in multi-robot environments**.
 
 ## 📸 Demo
 
-<img width="1919" height="1014" alt="image" src="https://github.com/user-attachments/assets/759c2af1-ac85-435e-942c-125d01a2b565" />
+<img width="1919" height="867" alt="image" src="https://github.com/user-attachments/assets/73e67d4b-18b7-4c2a-b3cc-e1b2b576cb14" />
+
 
 
 ---
